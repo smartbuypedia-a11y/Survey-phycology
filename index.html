@@ -519,7 +519,6 @@ function getPersonality(score) {
 
 function showResult() {
   const p = getPersonality(totalScore);
-  sendToSheet(p);
   document.getElementById("progress").style.width = "100%";
   document.getElementById("zoomWrap").style.display = "none";
   document.getElementById("bg").style.opacity = "0.25";
@@ -576,44 +575,23 @@ function loadQ() {
     .map(o => `<button onclick="next(${o.score}, \`${o.label}\`)">${o.label}</button>`)
     .join("");
 }
-function next(score, optIdx) {
 
-  answers.push(survey[i].options[optIdx].label);
+function next(score, label) {
+  answers.push(label);
   totalScore += score;
-
   document.getElementById("bg").style.opacity = 0;
-
   setTimeout(() => {
-
     i++;
-
-    // 🔥 FIX HERE
-    if (i >= survey.length) {
+    if (i < survey.length) {
+      loadQ();
+      document.getElementById("bg").style.opacity = 1;
+    } else {
       showResult();
-      return;
     }
-
-    loadQ();
-    document.getElementById("bg").style.opacity = 1;
-
   }, 300);
 }
 
 preload(survey[0].bg);
-function sendToSheet(p){
-
-fetch("https://script.google.com/macros/s/AKfycbwpyZzSc6-Ob6ka_QVfxyxNuKWdaFLsyxeDf1CpzLkQtOiUl-u4H-bj-wth2hz16NxF/exec", {
-  method: "POST",
-  body: JSON.stringify({
-    name: userName,
-    gender: userGender,
-    city: userCity,
-    score: totalScore,
-    type: p.type,
-    answers: answers.join(" | ")
-  })
-});
-} 
 </script>
 </body>
 </html>
