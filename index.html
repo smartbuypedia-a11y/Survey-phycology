@@ -75,7 +75,10 @@ button {
   background: white;
   font-weight: bold;
   cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
 }
+button:hover  { background: #f0f0f0; }
+button:active { transform: scale(0.97); }
 
 .progress {
   position: fixed;
@@ -83,24 +86,63 @@ button {
   height: 5px;
   background: #00ffcc;
   width: 0%;
+  transition: width 0.3s;
+  z-index: 10;
 }
 
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(20px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* ── Info screen inputs ── */
 .info-input {
   width: 100%;
   max-width: 380px;
   margin: 8px 0;
-  padding: 13px;
+  padding: 13px 16px;
+  border: 2px solid rgba(255,255,255,0.3);
   border-radius: 10px;
-  border: none;
+  background: rgba(255,255,255,0.12);
+  color: white;
+  font-size: 0.95rem;
+  outline: none;
+  box-sizing: border-box;
+  backdrop-filter: blur(4px);
+  transition: border 0.2s;
 }
+.info-input::placeholder { color: rgba(255,255,255,0.5); }
+.info-input:focus { border-color: #00ffcc; }
 
 .gender-row {
   display: flex;
   gap: 10px;
+  max-width: 380px;
+  width: 100%;
+  margin: 8px 0;
+}
+.gender-btn {
+  flex: 1;
+  padding: 12px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 .gender-btn.selected {
   background: #00ffcc;
-  color: black;
+  color: #000;
+  border-color: #00ffcc;
+}
+.info-error {
+  color: #ff6b6b;
+  font-size: 0.82rem;
+  margin: 4px 0 0;
+  display: none;
 }
 </style>
 </head>
@@ -109,29 +151,59 @@ button {
 
 <div class="progress" id="progress"></div>
 
+<!-- Zoom background (start screen) -->
 <div class="zoom-wrap" id="zoomWrap">
   <div class="zoom-layer" id="zl1"></div>
   <div class="zoom-layer" id="zl2"></div>
 </div>
 
+<!-- Static background (survey questions) -->
 <div class="bg" id="bg"></div>
+
 <div class="overlay"></div>
 
+<!-- START SCREEN -->
 <div class="container" id="startScreen">
-  <h2>Start Survey</h2>
-  <button onclick="startSurvey()">Start</button>
+  <h2 style="font-size:1.6rem; line-height:1.7; text-shadow:0 2px 12px rgba(0,0,0,0.6);">
+    Unga style ku<br>oru name irukkum!<br>
+    <span style="font-size:1.05rem; opacity:0.85; font-weight:normal;">Neenga enna type nu theriyuma?</span>
+  </h2>
+
+  <p style="font-size:0.93rem; line-height:1.9; max-width:360px; opacity:0.88;">
+    Just 21 questions — unga real personality theriyum.<br><br>
+    ⏱ 30 seconds &nbsp;|&nbsp; No sign up &nbsp;|&nbsp; No data collected
+  </p>
+
+  <button onclick="startSurvey()" style="background:#00ffcc; color:#000; font-size:1rem; letter-spacing:0.5px; box-shadow:0 4px 24px rgba(0,255,204,0.45);">
+    What's My Type? 👀🔥
+  </button>
 </div>
 
+<!-- INFO SCREEN -->
 <div class="container" id="infoScreen" style="display:none;">
-  <input id="nicknameInput" class="info-input" placeholder="Name">
-  <input id="cityInput" class="info-input" placeholder="City">
+  <h2 style="font-size:1.3rem; line-height:1.7; margin-bottom:6px; text-shadow:0 2px 12px rgba(0,0,0,0.6);">
+    Konjam unga pathi sollunga 👇
+  </h2>
+  <p style="font-size:0.85rem; opacity:0.7; margin: 0 0 16px;">Takes 10 seconds — promise!</p>
+
+  <input class="info-input" id="nicknameInput" type="text" placeholder="Unga nickname (e.g. Ravi, Priya...)" maxlength="30" />
+
+  <input class="info-input" id="cityInput" type="text" placeholder="Unga city (e.g. Salem, Chennai...)" maxlength="40" />
+
   <div class="gender-row">
-    <button id="genderMale" onclick="selectGender('Male')">Male</button>
-    <button id="genderFemale" onclick="selectGender('Female')">Female</button>
+    <button class="gender-btn" id="genderMale"   onclick="selectGender('Male')"  >Male</button>
+    <button class="gender-btn" id="genderFemale" onclick="selectGender('Female')">Female</button>
+    <button class="gender-btn" id="genderOther"  onclick="selectGender('Other')" >Other</button>
   </div>
-  <button onclick="submitInfo()">Next</button>
+
+  <p class="info-error" id="infoError">Please fill all fields and select gender</p>
+
+  <button onclick="submitInfo()" style="background:#00ffcc; color:#000; font-size:1rem; max-width:380px; margin-top:10px; box-shadow:0 4px 24px rgba(0,255,204,0.45);">
+    Let's Go!
+  </button>
 </div>
 
+<!-- SURVEY SCREEN -->
 <div class="container" id="surveyScreen" style="display:none;">
   <h2 id="q"></h2>
   <div id="opts"></div>
@@ -139,78 +211,409 @@ button {
 
 <script>
 
-let survey = [
-  { q:"Q1?", bg:"", options:[{label:"A",score:1},{label:"B",score:2}] },
-  { q:"Q2?", bg:"", options:[{label:"A",score:1},{label:"B",score:2}] }
+/* ── Zoom images — fashion/aura/style, men + women ── */
+const zoomImages = [
+  "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=1200",
+  "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200",
+  "https://images.unsplash.com/photo-1515168833906-d2a3b82b302a?w=1200",
+  "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1200",
 ];
 
-let i=0, totalScore=0, answers=[];
-let userNickname="", userCity="", userGender="";
+let zoomIndex = 0;
 
-function selectGender(g){
-  userGender=g;
+function cycleZoom() {
+  document.getElementById("zl1").style.backgroundImage = `url(${zoomImages[zoomIndex % zoomImages.length]})`;
+  document.getElementById("zl2").style.backgroundImage = `url(${zoomImages[(zoomIndex + 1) % zoomImages.length]})`;
+  zoomIndex++;
+}
+cycleZoom();
+setInterval(cycleZoom, 9000);
+
+/* ── Survey ── */
+const survey = [
+{
+  q: "Oru dress paakum pothu unga mind la first ah enna thonum?",
+  bg: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800",
+  options: [
+    { label: "🔥 Ithu enakku suit aagumaa?", score: 3 },
+    { label: "💰 price?", score: 1 },
+    { label: "🤔 Quality epdi irukkum?", score: 2 },
+    { label: "😐 Usually ignore pannuven", score: 0 }
+  ]
+},
+{
+  q: "Neenga dress select panna evlo time eduppinga?",
+  bg: "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=800",
+  options: [
+    { label: "⚡ Instant ah", score: 3 },
+    { label: "🕐 Few minutes compare pannuven", score: 2 },
+    { label: "📅  1 or 2 Days yosippen", score: 1 },
+    { label: "😅 Romba time eduppen", score: 0 }
+  ]
+},
+{
+  q: "Neenga wear panna dress-ah paathu others comment pannuvaangala?",
+  bg: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800",
+  options: [
+    { label: "✨ Often — naan trendy ah iruppean", score: 3 },
+    { label: "😊 Sometimes irukku", score: 2 },
+    { label: "🤷 Rare ah", score: 1 },
+    { label: "😶 Illa, notice pannuvathilla", score: 0 }
+  ]
+},
+{
+  q: "Nalla outfit pottu outside pogum pothu unga feel epdi irukkum?",
+  bg: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=800",
+  options: [
+    { label: "💪 Confidence full ah irukkum", score: 3 },
+    { label: "😌 Konjam better ah feel pannuven", score: 2 },
+    { label: "😐 Same ah thaan irukkum", score: 1 },
+    { label: "🤔 Outfit not matter", score: 0 }
+  ]
+},
+{
+  q: "Sale / Offer paatha unga reaction enna?",
+  bg: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?w=800",
+  options: [
+    { label: "🛍️ Worth-aa therinja buy pannuven", score: 3 },
+    { label: "👀 Paapen, decide pannuven", score: 2 },
+    { label: "⏳ Later check pannuven", score: 1 },
+    { label: "🚫 Offer ah paakave maaten", score: 0 }
+  ]
+},
+{
+  q: "Last time neenga oru dress buy panna — reason enna?",
+  bg: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800",
+  options: [
+    { label: "💡 Enakku genuinely pudichu", score: 3 },
+    { label: "🎉 Occasion irunduchu", score: 2 },
+    { label: "📱 Online ah paathu tempt aachu", score: 2 },
+    { label: "🏷️ Offer irunduchu", score: 1 }
+  ]
+},
+{
+  q: "Unga friends dress ah paathu neenga epdi feel pannuvinga?",
+  bg: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800",
+  options: [
+    { label: "😎 Naan already better ah dress up pannuven", score: 3 },
+    { label: "✨ Inspire aaguven, try pannuven", score: 2 },
+    { label: "🤔 Compare panrathu illa", score: 1 },
+    { label: "😶 Matter illa", score: 0 }
+  ]
+},
+{
+  q: "Budget konjam tight aachu — still pudicha dress buy pannuvingala?",
+  bg: "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=800",
+  options: [
+    { label: "🔥 Worth-aa therinja, yes!", score: 3 },
+    { label: "🤔 Depends on the dress", score: 2 },
+    { label: "⏳ Wait pannuven, price drop aagattum", score: 1 },
+    { label: "❌ Budget exceed aana skip", score: 0 }
+  ]
+},
+{
+  q: "Online shopping la neenga mostly trust panrathu enna?",
+  bg: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800",
+  options: [
+    { label: "📸 Photos and description paathu buy pannuven", score: 3 },
+    { label: "⭐ Reviews paathu decide pannuven", score: 2 },
+    { label: "🙏 Trusted brands matum", score: 1 },
+    { label: "🏪 Offline than safe", score: 0 }
+  ]
+},
+{
+  q: "Oru dress wear panna aparam — unga aura epdi irukkum?",
+  bg: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=800",
+  options: [
+    { label: "👑 Room enter aana everyone notice pannuvaanga", score: 3 },
+    { label: "😊 Comfortable and presentable", score: 2 },
+    { label: "🙂 Normal ah iruppen", score: 1 },
+    { label: "😐 Dress matter aagatha", score: 0 }
+  ]
+},
+{
+  q: "Unga style — epdi describe pannuvinga?",
+  bg: "https://images.unsplash.com/photo-1515168833906-d2a3b82b302a?w=800",
+  options: [
+    { label: "🔥 Bold & Trendy", score: 3 },
+    { label: "😎 Clean & Minimal", score: 2 },
+    { label: "🌿 Simple & Comfortable", score: 1 },
+    { label: "🤷 Style pathi yosikave maaten", score: 0 }
+  ]
+},
+{
+  q: "New collection launch aana — unga first move enna?",
+  bg: "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=800",
+  options: [
+    { label: "🚀 First ah check pannuven", score: 3 },
+    { label: "📱 Social media la paathu decide pannuven", score: 2 },
+    { label: "⏳ Others buy pannina paapen", score: 1 },
+    { label: "😐 Collection matter aagatha", score: 0 }
+  ]
+},
+{
+  q: "Oru dress buy panna apparam regret varutha?",
+  bg: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800",
+  options: [
+    { label: "😎 Illa — naan confident ah choose pannuven", score: 3 },
+    { label: "🙂 Rare ah varum", score: 2 },
+    { label: "😔 Sometimes varum", score: 1 },
+    { label: "😞 Often feel pannuven", score: 0 }
+  ]
+},
+{
+  q: "Outfit paathu yaaravathu 'ithu unakku nalla irukku' solluvangala?",
+  bg: "https://images.unsplash.com/photo-1556740738-b6a63e27c4df?w=800",
+  options: [
+    { label: "😄 Yes, always!", score: 3 },
+    { label: "🙂 Sometimes solluvaanga", score: 2 },
+    { label: "🤷 Rare ah", score: 1 },
+    { label: "😶 Illaiye", score: 0 }
+  ]
+},
+{
+  q: "Fashion pathi unga honest opinion enna?",
+  bg: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800",
+  options: [
+    { label: "✨ Personality express panna best way", score: 3 },
+    { label: "😊 Feel good aaganum", score: 2 },
+    { label: "🤔 Necessary but not priority", score: 1 },
+    { label: "😐 Just clothing thaan", score: 0 }
+  ]
+},
+{
+  q: "Unga age group enna?",
+  bg: "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=800",
+  options: [
+    { label: "🧒 Under 18", score: 1 },
+    { label: "🔥 18–25", score: 3 },
+    { label: "💼 26–35", score: 3 },
+    { label: "👑 35+", score: 2 }
+  ]
+},
+{
+  q: "Neenga mostly enga shopping pannuvinga?",
+  bg: "https://images.unsplash.com/photo-1528698827591-e19ccd7bc23d?w=800",
+  options: [
+    { label: "📱 Online — convenient", score: 2 },
+    { label: "🏪 Offline — touch & feel", score: 2 },
+    { label: "🔄 Both — situation pathi", score: 3 },
+    { label: "🎁 Gifted ah vaangiduven", score: 0 }
+  ]
+},
+{
+  q: "Dress price pathi unga stand enna?",
+  bg: "https://images.unsplash.com/photo-1556745757-8d76bdb6984b?w=800",
+  options: [
+    { label: "💎 Quality-ku pay pannuven", score: 3 },
+    { label: "⚖️ Value for money paapen", score: 2 },
+    { label: "🏷️ Budget range matum", score: 1 },
+    { label: "🔍 Cheapest option than", score: 0 }
+  ]
+},
+{
+  q: "Unga wardrobe la currently epdi irukkum?",
+  bg: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800",
+  options: [
+    { label: "🔥 Trendy pieces filled", score: 3 },
+    { label: "👕 Few good picks irukkum", score: 2 },
+    { label: "🛍️ Upgrade venumnu feel aagutu", score: 2 },
+    { label: "😅 Same old clothes thaan", score: 0 }
+  ]
+},
+{
+  q: "Oru stranger unga dress ah paathu compliment pannuvanga nu nambuvingala?",
+  bg: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=800",
+  options: [
+    { label: "😎 Definitely — naan well-dressed", score: 3 },
+    { label: "🙂 Maybe, possible", score: 2 },
+    { label: "🤔 Unlikely", score: 1 },
+    { label: "😶 Never yosikave maaten", score: 0 }
+  ]
+},
+{
+  q: "Final — Unga shopping superpower enna?",
+  bg: "https://images.unsplash.com/photo-1580519542036-c47de6196ba5?w=800",
+  options: [
+    { label: "🎯 Perfect piece ah instantly spot pannuven", score: 3 },
+    { label: "💡 Best deal ah find pannuven", score: 2 },
+    { label: "🧠 Research panni smart buy pannuven", score: 2 },
+    { label: "😅 Superpower illaye enakku", score: 0 }
+  ]
+}
+];
+
+let i = 0;
+let answers = [];
+let totalScore = 0;
+let userNickname = "";
+let userCity = "";
+let userGender = "";
+
+function selectGender(g) {
+  userGender = g;
+  ["Male","Female","Other"].forEach(function(x) {
+    document.getElementById("gender" + x).classList.toggle("selected", x === g);
+  });
 }
 
-function submitInfo(){
-  userNickname=document.getElementById("nicknameInput").value;
-  userCity=document.getElementById("cityInput").value;
-  document.getElementById("infoScreen").style.display="none";
-  document.getElementById("surveyScreen").style.display="flex";
-  loadQ();
-}
-
-function startSurvey(){
-  document.getElementById("startScreen").style.display="none";
-  document.getElementById("infoScreen").style.display="flex";
-}
-
-function loadQ(){
-  let d=survey[i];
-  document.getElementById("q").innerText=d.q;
-  document.getElementById("opts").innerHTML=
-    d.options.map(o=>`<button onclick="next(${o.score}, \`${o.label}\`)">${o.label}</button>`).join("");
-}
-
-function next(score,label){
-
-  answers.push(label);
-  totalScore += score;
-
-  i++;
-
-  if(i >= survey.length){
-    showResult();
+function submitInfo() {
+  var nick = document.getElementById("nicknameInput").value.trim();
+  var city = document.getElementById("cityInput").value.trim();
+  var err  = document.getElementById("infoError");
+  if (!nick || !city || !userGender) {
+    err.style.display = "block";
     return;
   }
-
+  err.style.display = "none";
+  userNickname = nick;
+  userCity = city;
+  document.getElementById("infoScreen").style.display = "none";
+  document.getElementById("surveyScreen").style.display = "flex";
+  document.getElementById("bg").style.opacity = "1";
   loadQ();
 }
 
-function showResult(){
+const personalities = [
+  {
+    min: 0, max: 15,
+    emoji: "🌱",
+    type: "The Safe Keeper",
+    tamil: "Neenga oru careful, grounded buyer!",
+    desc: "Neenga trust and quality-ku importance kuduppeenga. Impulse purchase rare. Oru product genuinely convince aana matum buy pannuveenga — ithu unga strength!",
+    color: "#4CAF50",
+    lead: "cold"
+  },
+  {
+    min: 16, max: 30,
+    emoji: "🧠",
+    type: "The Smart Selector",
+    tamil: "Neenga oru intelligent, calculated buyer!",
+    desc: "Neenga research pannuvenga, compare pannuvenga, appuram decide pannuvenga. Regret rare. Unga choices always value-driven — people trust unga opinion!",
+    color: "#2196F3",
+    lead: "warm"
+  },
+  {
+    min: 31, max: 45,
+    emoji: "🌊",
+    type: "The Vibe Buyer",
+    tamil: "Neenga oru feel-driven, social buyer!",
+    desc: "Mood, trend, friends — ellame unga purchase-ah influence pannudu. Neenga style-conscious, socially aware. Right offer right time la vaandha — neenga miss pannuveengala?",
+    color: "#FF9800",
+    lead: "warm"
+  },
+  {
+    min: 46, max: 63,
+    emoji: "🔥",
+    type: "The Aura Spender",
+    tamil: "Neenga oru confident, trend-leading buyer!",
+    desc: "Neenga dress-ah just clothes ah paakala — ithu unga identity. Unga aura, unga presence — ellame unga style la reflect aagudu. Neenga already know pannuveenga — what suits you!",
+    color: "#00ffcc",
+    lead: "hot"
+  }
+];
 
-  document.getElementById("surveyScreen").innerHTML = `
-    <h2>Done</h2>
-    <p>Score: ${totalScore}</p>
-  `;
-
-  sendToSheet();
+function getPersonality(score) {
+  return personalities.find(p => score >= p.min && score <= p.max) || personalities[0];
 }
 
-function sendToSheet(){
+function showResult() {
+  const p = getPersonality(totalScore);
+  sendToSheet(p);
+  document.getElementById("progress").style.width = "100%";
+  document.getElementById("zoomWrap").style.display = "none";
+  document.getElementById("bg").style.opacity = "0.25";
+
+  document.getElementById("surveyScreen").innerHTML = `
+    <div style="max-width:420px; padding:10px; animation: fadeUp 0.6s ease;">
+      <div style="font-size:3.5rem; margin-bottom:8px;">${p.emoji}</div>
+      <h2 style="color:${p.color}; margin:10px 0; font-size:1.5rem; text-shadow:0 0 24px ${p.color}66;">${p.type}</h2>
+      <p style="font-size:1rem; font-weight:bold; margin-bottom:10px;">${p.tamil}</p>
+      <p style="font-size:0.9rem; line-height:1.8; opacity:0.9; max-width:360px;">${p.desc}</p>
+      <div style="margin-top:22px; padding:14px; background:rgba(255,255,255,0.1); border-radius:14px; backdrop-filter:blur(6px);">
+        <p style="margin:0; font-size:0.75rem; opacity:0.65; letter-spacing:1.5px; text-transform:uppercase;">Unga Style Score</p>
+        <p style="margin:6px 0 0; font-size:2.2rem; font-weight:bold; color:${p.color};">${totalScore} <span style="font-size:1rem; opacity:0.55;">/ 63</span></p>
+      </div>
+    </div>
+  `;
+
+  fetch("https://script.google.com/macros/s/AKfycbx2pOf7BX_ExhQNRh2zAc6KlARMcnHJT4X7PwaCSXxAxvc5VORpGRlYFRugkEwPjvoNsw/exec", {
+    method: "POST",
+    body: JSON.stringify({
+      nickname: userNickname,
+      city: userCity,
+      gender: userGender,
+      score: totalScore,
+      type: p.type,
+      answers: answers.join(" | ")
+    })
+  });
+}
+
+function preload(url) { new Image().src = url; }
+
+function setBg(url) {
+  const bg = document.getElementById("bg");
+  const img = new Image();
+  img.onload = () => { bg.style.backgroundImage = `url(${url})`; };
+  img.src = url;
+}
+
+function startSurvey() {
+  document.getElementById("zoomWrap").style.display = "none";
+  document.getElementById("startScreen").style.display = "none";
+  document.getElementById("infoScreen").style.display = "flex";
+  document.getElementById("bg").style.opacity = "1";
+}
+
+function loadQ() {
+  const d = survey[i];
+  document.getElementById("q").innerText = d.q;
+  setBg(d.bg);
+  if (survey[i + 1]) preload(survey[i + 1].bg);
+  document.getElementById("progress").style.width = (i / survey.length * 100) + "%";
+  document.getElementById("opts").innerHTML = d.options
+    .map(o => `<button onclick="next(${o.score}, \`${o.label}\`)">${o.label}</button>`)
+    .join("");
+}
+function next(score, optIdx) {
+
+  answers.push(survey[i].options[optIdx].label);
+  totalScore += score;
+
+  document.getElementById("bg").style.opacity = 0;
+
+  setTimeout(() => {
+
+    i++;
+
+    // 🔥 FIX HERE
+    if (i >= survey.length) {
+      showResult();
+      return;
+    }
+
+    loadQ();
+    document.getElementById("bg").style.opacity = 1;
+
+  }, 300);
+}
+
+preload(survey[0].bg);
+function sendToSheet(p){
 
 fetch("https://script.google.com/macros/s/AKfycbwpyZzSc6-Ob6ka_QVfxyxNuKWdaFLsyxeDf1CpzLkQtOiUl-u4H-bj-wth2hz16NxF/exec", {
-  method:"POST",
+  method: "POST",
   body: JSON.stringify({
-    name: userNickname,
-    city: userCity,
+    name: userName,
     gender: userGender,
+    city: userCity,
     score: totalScore,
+    type: p.type,
     answers: answers.join(" | ")
   })
 });
-
-}
-
+} 
 </script>
 </body>
 </html>
