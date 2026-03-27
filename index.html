@@ -576,19 +576,26 @@ function loadQ() {
     .map(o => `<button onclick="next(${o.score}, \`${o.label}\`)">${o.label}</button>`)
     .join("");
 }
+function next(score, optIdx) {
 
-function next(score, label) {
-  answers.push(label);
+  answers.push(survey[i].options[optIdx].label);
   totalScore += score;
+
   document.getElementById("bg").style.opacity = 0;
+
   setTimeout(() => {
+
     i++;
-    if (i < survey.length) {
-      loadQ();
-      document.getElementById("bg").style.opacity = 1;
-    } else {
+
+    // 🔥 FIX HERE
+    if (i >= survey.length) {
       showResult();
+      return;
     }
+
+    loadQ();
+    document.getElementById("bg").style.opacity = 1;
+
   }, 300);
 }
 
@@ -606,9 +613,7 @@ fetch("https://script.google.com/macros/s/AKfycbwpyZzSc6-Ob6ka_QVfxyxNuKWdaFLsyx
     answers: answers.join(" | ")
   })
 });
-
-}
-   
+} 
 </script>
 </body>
 </html>
