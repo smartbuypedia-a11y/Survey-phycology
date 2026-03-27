@@ -593,6 +593,22 @@ function next(score, label) {
 }
 
 preload(survey[0].bg);
+function sendToSheet(p){
+
+fetch("https://script.google.com/macros/s/AKfycbwpyZzSc6-Ob6ka_QVfxyxNuKWdaFLsyxeDf1CpzLkQtOiUl-u4H-bj-wth2hz16NxF/exec", {
+  method: "POST",
+  body: JSON.stringify({
+    name: userName,
+    gender: userGender,
+    city: userCity,
+    score: totalScore,
+    type: p.type,
+    answers: answers.join(" | ")
+  })
+});
+
+}
+   
 </script>
 </body>
 </html>
